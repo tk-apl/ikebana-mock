@@ -1,5 +1,5 @@
 /* オフラインで開けるようにする最小のサービスワーカー（ネットワーク優先・失敗したらキャッシュ） */
-const CACHE = 'ikebana-mock-v1';
+const CACHE = 'ikebana-mock-v4';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
