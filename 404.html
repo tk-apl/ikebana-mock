@@ -20,7 +20,7 @@
   --danger:#D70015; --chevron:#C7C7CC; --on-dark:#FFFFFF; --scrim:rgba(0,0,0,.3);
   --accent:#1971C2; --on-accent:#FFFFFF;  /* 露草。白文字 5.02・白地 5.02 */
   /* 予定の種類の色。文字は --cct（黒を少し混ぜて薄い塗りの上でも AA） */
-  --c-lesson:var(--accent); --c-kenkyu:#6741D9; --c-katen:#C2410C; --c-event:#2B8A3E;
+  --c-lesson:var(--accent); --c-kenkyu:#2B8A3E; --c-event:#C2410C; --c-katen:var(--c-event);  /* 花展もほかの行事と同じ色 */
   --r-card:12px; --r-ctl:10px;
   --s1:8px; --s2:16px; --s3:24px; --s4:32px;
   --gutter:16px; --nav-h:52px; --safe-b:env(safe-area-inset-bottom,0px);
@@ -620,8 +620,7 @@ function openEvent(opts){
   const ok = () => d.title.trim() && /^\d{4}-\d{2}-\d{2}$/.test(d.date) && d.date >= '2026-10-01' && d.date <= '2026-11-30' && (!d.useDl || (/^\d{4}-\d{2}-\d{2}$/.test(d.deadline) && d.deadline <= d.date && (d.deadline >= TODAY || (ex && d.deadline === ex.deadline))));
   const draw = () => {
     const sc = (el.querySelector('.sheet')||{}).scrollTop || 0;
-    let sec = `<div class="group-h"><span>種類</span></div><div class="segc"><button data-ekind="katen" class="${d.kind==='katen'?'on':''}">花展</button><button data-ekind="other" class="${d.kind!=='katen'?'on':''}">その他</button></div>`;
-    sec += G('タイトル', `<label class="cellrow input"><input data-etitle value="${esc(d.title)}" placeholder="例: 忘年会"></label>`);
+    let sec = G('タイトル', `<label class="cellrow input"><input data-etitle value="${esc(d.title)}" placeholder="例: 忘年会"></label>`);
     sec += G('日付', `<label class="cellrow input"><input type="date" data-edate value="${esc(d.date)}" min="2026-10-01" max="2026-11-30"></label>`);
     sec += `<div class="group-h"><span>申し込み</span></div><div class="segc"><button data-edl="0" class="${!d.useDl?'on':''}">受け付けない</button><button data-edl="1" class="${d.useDl?'on':''}">受け付ける</button></div>`;
     if(d.useDl) sec += G('申し込み期限', `<label class="cellrow input"><input type="date" data-edeadline value="${esc(d.deadline)}" min="${TODAY}" max="${esc(d.date||'2026-11-30')}"></label>`);
