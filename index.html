@@ -93,6 +93,7 @@ body.scrolled .topbar{box-shadow:0 .5px 0 var(--sep)}
 .segc button.has:not(.on)::after{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:3px}
 .segc button.on{background:var(--sel-bg);color:var(--sel-fg)}
 .segc button.on .n{color:var(--sel-fg)}
+.segc button:disabled{color:var(--text-3)}
 
 /* ==== 日の見出し・カレンダー ==== */
 .day{margin-top:var(--s3)}
@@ -321,9 +322,10 @@ const DEFAULTS = {
     {id:'r6',date:'2026-09-20',sid:'s9',set:'生花',photo:null,materials:['m1','m5'],kata:'生花',note:'',inZukan:true,by:''},
     {id:'r7',date:'2026-09-17',sid:'s11',set:'現代華',photo:null,materials:['m6','m3'],kata:'自由花',note:'',inZukan:true,by:'先生'}
   ],
+  flowerOpts: { items:['アカメヤナギ','サンゴミズキ','菊'], counts:[5,7,9] },
   notices: [
-    {id:'n1',at:'2026-09-27 18:30',text:'10月18日（日）は研究会です。13時までに集まってください。',to:'all',count:10},
-    {id:'n2',at:'2026-09-20 21:00',text:'10月11日（日）と29日（木）は休みです。',to:'all',count:10}
+    {id:'n1',at:'2026-09-27 18:30',title:'10月の研究会',text:'10月18日（日）は研究会です。13時までに集まってください。持ち物は花ばさみと花器です。',to:'all',count:12},
+    {id:'n2',at:'2026-09-20 21:00',title:'10月の休み',text:'10月11日（日）と29日（木）は休みです。お間違えのないようお願いします。',to:'all',count:12}
   ]
 };
 
@@ -339,7 +341,16 @@ const KEY = 'ikebana-mock-v2';
 let S = load();
 function load(){
   const def = Object.assign(structuredClone(DEFAULTS), { role:'student', month:{y:2026,m:10}, sel:'2026-10-08', tab:'cal', view:null, draft:{}, sort:'season', q:'', ghosts:[], lateCancels:[] });
-  try{ const raw = localStorage.getItem(KEY); if(raw){ const o = JSON.parse(raw); const ok = o && typeof o==='object' && ['students','bookings','materials','records','notices'].every(k=>Array.isArray(o[k])) && o.days && typeof o.days==='object'; if(ok){ const st = Object.assign(def, o); if(!TABS[st.role]) st.role='student'; if(!TABS[st.role].some(([k])=>k===st.tab)) st.tab='cal'; st.view = null; st.ghosts = []; if(!st.draft || typeof st.draft!=='object' || Array.isArray(st.draft)) st.draft = {}; if(!st.month || !(st.month.m>=1 && st.month.m<=12) || !st.month.y) st.month = {y:2026,m:10}; if(typeof st.sel!=='string') st.sel = '2026-10-08'; st.seasonOverride = null; st.periodSel = {}; if(!Array.isArray(st.lateCancels)) st.lateCancels = []; for(const k of ['students','bookings','materials','records','notices','lateCancels']) st[k] = st[k].filter(x=>x && typeof x==='object'); st.bookings = st.bookings.filter(b=>typeof b.date==='string'); return st; } } }catch(e){}
+  try{ const raw = localStorage.getItem(KEY); if(raw){ const o = JSON.parse(raw); const ok = o && typeof o==='object' && ['students','bookings','materials','records','notices'].every(k=>Array.isArray(o[k])) && o.days && typeof o.days==='object'; if(ok){ const st = Object.assign(def, o); if(!TABS[st.role]) st.role='student'; if(!TABS[st.role].some(([k])=>k===st.tab)) st.tab='cal'; st.view = null; st.ghosts = []; if(!st.draft || typeof st.draft!=='object' || Array.isArray(st.draft)) st.draft = {}; if(!st.month || !(st.month.m>=1 && st.month.m<=12) || !st.month.y) st.month = {y:2026,m:10}; if(typeof st.sel!=='string') st.sel = '2026-10-08'; st.seasonOverride = null; st.periodSel = {}; if(!st.flowerOpts || !Array.isArray(st.flowerOpts.items) || !Array.isArray(st.flowerOpts.counts)) st.flowerOpts = structuredClone(DEFAULTS.flowerOpts);
+    if(!Array.isArray(st.lateCancels)) st.lateCancels = []; for(const k of ['students','bookings','materials','records','notices','lateCancels']) st[k] = st[k].filter(x=>x && typeof x==='object'); st.bookings = st.bookings.filter(b=>typeof b.date==='string');
+    const mig = v => v==='基礎' ? '基本花型' : v==='持ち込み' ? '花展の練習' : v;
+    for(const x of st.students) if(Array.isArray(x.course)) x.course = x.course.map(mig);
+    for(const b of st.bookings) b.set = mig(b.set);
+    for(const r of st.records) r.set = mig(r.set);
+    for(const m of st.materials) if(Array.isArray(m.sets)) m.sets = m.sets.map(mig);
+    for(const k of Object.keys(st.draft)){ const dr = st.draft[k]; if(dr && typeof dr==='object') dr.set = mig(dr.set); else delete st.draft[k]; }
+    for(const n of st.notices){ if(!String(n.title||'').trim()) n.title = String(n.text||'').trim().split(/[。\n]/)[0].trim().slice(0,24) || 'お知らせ'; }
+    return st; } } }catch(e){}
   return def;
 }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ toast('保存できません'); } }
@@ -358,7 +369,9 @@ function deadline(s){ const d = parse(s); const back = d.getDay()===0 ? 7 : d.ge
 const isPast = s => s < TODAY;
 const isLessonState = s => S.days[s]==='open' || S.days[s]==='kenkyu';
 const isBookable = s => isLessonState(s) && TODAY <= deadline(s);
-const isCancellable = s => isLessonState(s) && s >= TODAY;   // 締め切り後も当日まで取り消せる（変更は先生経由）
+const isCancellable = s => isBookable(s);   // 生徒が取り消せるのは締め切り（その週の日曜24時）まで。過ぎたら確定
+const isConfirmed = s => isLessonState(s) && !isBookable(s) && !isPast(s);
+const deadlineLabel = s => `<span class="num">${fmtM(deadline(s))} 24時</span>まで`;
 function defaultSet(sid, date){ if(date && S.days[date]==='kenkyu') return '研究会の練習'; const st = student(sid); const c = st && st.course && st.course[0]; return SETS.includes(c) ? c : undefined; }
 function defaultHour(sid){ const mine = S.bookings.filter(b=>b.sid===sid); const past = mine.filter(b=>b.date<=TODAY).sort((a,b)=>b.date.localeCompare(a.date)); if(past.length) return past[0].hour; const fut = mine.sort((a,b)=>a.date.localeCompare(b.date)); return fut.length ? fut[0].hour : undefined; }
 const student = id => S.students.find(x=>x.id===id);
@@ -367,7 +380,7 @@ const bookingsOf = date => S.bookings.filter(b=>b.date===date);
 const myBooking = date => S.bookings.find(b=>b.date===date && b.sid===ME);
 function loadByHour(date, excludeId){
   const map = Object.fromEntries(HOURS.map(h=>[h,0]));
-  for(const b of bookingsOf(date)){ if(b.id===excludeId) continue; for(let k=0;k<STAY;k++){ const h=b.hour+k; if(map[h]!==undefined) map[h]++; } }
+  for(const b of bookingsOf(date)){ if(b.id===excludeId || b.absent) continue; for(let k=0;k<STAY;k++){ const h=b.hour+k; if(map[h]!==undefined) map[h]++; } }
   return map;
 }
 function displayName(st){ if(!st) return '—'; return st.display==='none' ? '生徒' : st.name; }
@@ -388,7 +401,7 @@ let render = function(){
   document.getElementById('tabbar').innerHTML = tabs.map(([k,n])=>`<button data-tab="${k}" class="${S.tab===k?'on':''}">${n}</button>`).join('');
   let html = '';
   const v = S.view;
-  if(v){ html = ({recEdit:renderRecEdit, wikiItem:renderWikiItem, wikiEdit:renderWikiEdit, sample:renderSample, studentPage:renderStudentPage, noticeNew:renderNoticeNew})[v.name](v); }
+  if(v){ html = ({recEdit:renderRecEdit, wikiItem:renderWikiItem, wikiEdit:renderWikiEdit, sample:renderSample, studentPage:renderStudentPage, noticeNew:renderNoticeNew, noticeItem:renderNoticeItem})[v.name](v); }
   else { html = ({cal:renderCalView, mine:renderMine, rec:renderRec, wiki:renderWiki, notice:renderNotice, order:renderOrder, roster:renderRoster})[S.tab](); }
   app.innerHTML = html + renderDev();
   document.body.classList.toggle('has-bar', !!app.querySelector('.bar-fixed'));
@@ -449,8 +462,8 @@ function renderNext(){
   if(!ds.length) return '';
   return G('次の稽古日', ds.map(k=>{
     const mb = myBooking(k);
-    const sub = mb ? `${esc(mb.set)}・<span class="num">${mb.hour}時ごろ</span>` : isBookable(k) ? `<span class="num">${fmtM(deadline(k))}</span>まで` : '';
-    const st = mb ? '予約済み' : isBookable(k) ? '受付中' : '受付終了';
+    const sub = mb ? `${esc(mb.set)}・<span class="num">${mb.hour}時ごろ</span>` : isBookable(k) ? deadlineLabel(k) : '';
+    const st = mb ? (mb.absent ? '欠席' : isBookable(k) ? '予約済み' : '確定') : isBookable(k) ? '受付中' : '受付終了';
     const tags = [k===TODAY?'今日':'', S.days[k]==='kenkyu'?'研究会':''].filter(Boolean).join('・');
     return R(`${fmtMD(k)}${tags?`<span class="small muted">　${tags}</span>`:''}`, st, {sub, data:`data-date="${k}"`, chev:true});
   }).join(''), {});
@@ -467,7 +480,7 @@ function renderCalCard(){
     if(lesson){
       cls.push('lesson'); cls.push(st || 'undecided');
       const mine = S.role==='student' && myBooking(s);
-      if(mine && (st==='open'||st==='kenkyu')){ sub = '予約'; cls.push('mine'); }
+      if(mine && (st==='open'||st==='kenkyu')){ sub = mine.absent ? '欠席' : isConfirmed(s) ? '確定' : '予約'; cls.push('mine'); }
       else if(st==='open'){ sub = S.role==='teacher' ? `${bookingsOf(s).length}人` : '開催'; }
       else if(st==='kenkyu'){ sub = '研究会'; }
       else if(st==='closed'){ sub = '休'; }
@@ -495,7 +508,7 @@ function dayInfo(s){
   const st = S.days[s]; const n = bookingsOf(s).length;
   let rows = S.role==='teacher' ? '' : R('状態', STATE_LABEL[st] || '未定');
   if(st==='open' || st==='kenkyu'){
-    const rc = s===TODAY ? '今日' : isPast(s) ? '終了' : TODAY<=deadline(s) ? `<span class="num">${fmtM(deadline(s))}</span>まで` : '受付終了';
+    const rc = s===TODAY ? '今日' : isPast(s) ? '終了' : isBookable(s) ? deadlineLabel(s) : '受付終了';
     rows += R('受付', rc) + R('予約', `<span class="num">${n}人</span>`);
   }
   return rows ? G('', rows, {}) : '';
@@ -505,20 +518,22 @@ function renderDayStudent(){
   const mine = myBooking(s); let body = '';
   const changing = !!(mine && S.changing===mine.id);
   const ghost = !mine && (S.ghosts||[]).filter(g=>g.b.sid===ME && g.b.date===s).pop();
-  if(ghost) body += G('', R('取り消し済み', `<button class="link" data-restore="${ghost.b.id}">元に戻す</button>`, {sub:`${esc(ghost.b.set)}・<span class="num">${ghost.b.hour}時ごろ</span>`, cls:'ghost'}), {gap:true});
+  if(ghost) body += G('', R('キャンセル済み', `<button class="link" data-restore="${ghost.b.id}">元に戻す</button>`, {sub:`${esc(ghost.b.set)}・<span class="num">${ghost.b.hour}時ごろ</span>`, cls:'ghost'}), {gap:true});
   if(mine && !changing){
-    body += G('自分の予約', R('セット', esc(mine.set)) + R('時間', `<span class="num">${mine.hour}時ごろ</span>`) + (mine.memo ? R('花材の希望', esc(mine.memo)) : '') + (mine.proxy ? R('入力', '先生') : ''));
+    body += G('自分の予約', R('状態', mine.absent ? '欠席' : isBookable(s) ? '予約済み' : '確定') + R('セット', esc(mine.set)) + R('時間', `<span class="num">${mine.hour}時ごろ</span>`) + (flowerText(mine) ? R('花材', esc(flowerText(mine))) : '') + (mine.memo ? R('花材の希望', esc(mine.memo)) : '') + (mine.proxy ? R('入力', '先生') : ''));
+    if((mine.absent && !isPast(s)) || isConfirmed(s)) body += G('', mine.absent ? R('欠席の連絡を取り消す','',{data:`data-unabsent="${mine.id}"`, cls:'tint'}) : R('欠席を連絡する','',{data:`data-absent="${mine.id}"`, cls:'tint'}), {gap:true});
     const acts = isBookable(s)
-      ? R('変える','',{data:`data-change="${mine.id}"`, cls:'tint'}) + R(mine.memo?'花材を直す':'花材を書く','',{data:`data-memoedit="${mine.id}"`, cls:'tint'}) : '';
+      ? R('予約内容の変更','',{data:`data-change="${mine.id}"`, cls:'tint'}) : '';
     if(acts) body += G('', acts, {gap:true});
-    if(isCancellable(s)) body += G('', R('取り消す','',{data:`data-cancel="${mine.id}"`, cls:'danger'}), {gap:true});
+    if(isCancellable(s)) body += G('', R('予約をキャンセルする','',{data:`data-cancel="${mine.id}"`, cls:'danger'}), {gap:true});
   } else if(isBookable(s)){
     if(!S.draft[s] && !changing) S.draft[s] = { set: defaultSet(ME, s), hour: defaultHour(ME) };
     const draft = S.draft[s] || {}; const by = loadByHour(s, changing ? mine.id : null);
     if(changing) body += G('いまの予約', R('セット', esc(mine.set)) + R('時間', `<span class="num">${mine.hour}時ごろ</span>`));
     body += G('セット', SETS.map(x=>R(esc(x), '', {data:`data-set="${esc(x)}"`, check: draft.set===x})).join(''), {id:'secSet'});
     body += `<div class="group-h" id="secHour"><span>来る時間</span><span class="gh-r">席 ${SEATS}</span></div>` + timeSegments(by, draft.hour, (S.periodSel||{})[s], 'data-hour', 'data-period');
-    body += G('花材の希望', `<label class="cellrow input"><input data-memo value="${esc(draft.memo||'')}" placeholder="例: アカメヤナギ 5本"></label>`);
+    body += flowerPicker(draft.set, draft.flower, 'data-fitem', 'data-fcount');
+    body += G('花材の希望', `<label class="cellrow input"><input data-memo value="${esc(draft.memo||'')}" placeholder="${draft.set==='花展の練習'?'例: 持ち込む花材':'自由に書く'}"></label>`);
     if(changing) body += G('', R('やめる','',{data:'data-changeoff="1"', cls:'tint'}), {gap:true});
   }
   if(isLessonState(s) && (isPast(s) || (mine && !changing) || !isBookable(s))) body += renderLoad(s);
@@ -533,11 +548,11 @@ function renderBar(){
   const part = (v, empty) => v ? esc(v) : `<span class="muted">${empty}</span>`;
   const btn = !d.set ? `<button class="btn" data-jump="secSet">セットを選ぶ</button>`
     : !d.hour ? `<button class="btn" data-jump="secHour">時間を選ぶ</button>`
-    : `<button class="btn" data-book="${s}">${changing?'この内容に変える':'予約する'}</button>`;
+    : `<button class="btn" data-book="${s}">${changing?'この内容に変更する':'予約する'}</button>`;
   return `<div class="bar-fixed"><div class="sum">${esc(fmtM(s))}<br><b>${part(d.set,'セット')}・${part(d.hour?d.hour+'時ごろ':'','時間')}</b></div>${btn}</div>`;
 }
 function ghostRow(t1, id){
-  return `<div class="row ghost"><div class="mid"><div class="t1">${t1}</div><div class="t2">取り消し済み</div></div><button class="act" data-restore="${id}">元に戻す</button></div>`;
+  return `<div class="row ghost"><div class="mid"><div class="t1">${t1}</div><div class="t2">キャンセル済み</div></div><button class="act" data-restore="${id}">元に戻す</button></div>`;
 }
 function renderLoad(s){
   const by = loadByHour(s);
@@ -552,15 +567,16 @@ function renderDayTeacher(){
   const ghosts = (S.ghosts||[]).filter(g=>g.b.date===s).map(g=>({...g.b, _ghost:true}));
   const rows = list.concat(ghosts).sort((a,b)=>a.hour-b.hour || String(a.id).localeCompare(String(b.id)));
   const rowHtml = b => b._ghost
-    ? R(esc(student(b.sid)?.name), `<button class="link" data-restore="${b.id}">元に戻す</button>`, {sub:'取り消し済み', cls:'ghost'})
-    : `<div class="cellrow"><span class="cl"><span>${esc(student(b.sid)?.name)}${b.proxy?'　<span class="tag">先生が入力</span>':''}</span><span class="sub"><span class="num">${b.hour}時ごろ</span>・${esc(b.set)}${b.memo?`　${esc(b.memo)}`:''}</span></span><span class="acts">${isLessonState(s)?`<button class="link" data-memoedit="${b.id}">${b.memo?'花材を直す':'花材を書く'}</button>`:''}<button class="link danger" data-proxycancel="${b.id}">取り消す</button></span></div>`;
+    ? R(esc(student(b.sid)?.name), `<button class="link" data-restore="${b.id}">元に戻す</button>`, {sub:'キャンセル済み', cls:'ghost'})
+    : `<div class="cellrow"><span class="cl"><span>${esc(student(b.sid)?.name)}${b.absent?'　<span class="tag">欠席</span>':''}${b.proxy?'　<span class="tag">先生が入力</span>':''}</span><span class="sub"><span class="num">${b.hour}時ごろ</span>・${esc(b.set)}${wishesOf(b).length?`　${esc(wishesOf(b).join('・'))}`:''}</span></span><span class="acts"><button class="link" data-pedit="${b.id}">変更</button><button class="link danger" data-proxycancel="${b.id}">キャンセル</button></span></div>`;
   if(!isLessonState(s) && rows.length) body += G(`予約 <span class="num">${list.length}人</span>`, rows.map(rowHtml).join(''));
   if(isLessonState(s)){
-    const counts = {}; for(const b of list) counts[b.set]=(counts[b.set]||0)+1;
-    body += G(`予約 <span class="num">${list.length}人</span>`, R('代わりに入れる','',{data:`data-proxy="${s}"`, cls:'tint'}) + rows.map(rowHtml).join(''));
+    const counts = {}; for(const b of list) if(!b.absent) counts[b.set]=(counts[b.set]||0)+1;
+    const absentN = list.filter(b=>b.absent).length;
+    body += G(`予約 <span class="num">${list.length}人</span>`, R('予約を入れる','',{data:`data-proxy="${s}"`, cls:'tint'}) + rows.map(rowHtml).join(''), {right: absentN ? `欠席 <span class="num">${absentN}人</span>` : ''});
     body += G('セット別の数', SETS.filter(x=>counts[x]).map(x=>R(esc(x), `<span class="num">${counts[x]}</span>`)).join('') || R('—',''));
     const ghostIds = new Set((S.ghosts||[]).map(g=>g.b.id)); const late = (S.lateCancels||[]).filter(c=>c && c.date===s && !ghostIds.has(c.id));
-    if(late.length) body += G(`締め切り後の取り消し <span class="num">${late.length}人</span>`, late.map(c=>R(esc(student(c.sid)?.name), `${esc(c.set)}・<span class="num">${c.hour}時ごろ</span>`)).join(''));
+    if(late.length) body += G(`締め切り後のキャンセル <span class="num">${late.length}人</span>`, late.map(c=>R(esc(student(c.sid)?.name), `${esc(c.set)}・<span class="num">${c.hour}時ごろ</span>`)).join(''));
     body += renderLoad(s);
   }
   return `<section class="day"><h2 class="title2">${fmtMD(s)}</h2>${dayInfo(s)}${body}</section>`;
@@ -571,10 +587,10 @@ function renderMine(){
   const up = S.bookings.filter(b=>b.sid===ME && !isPast(b.date));
   const gh = (S.ghosts||[]).filter(g=>g.b.sid===ME && !isPast(g.b.date)).map(g=>({...g.b, _ghost:true}));
   const rows = up.concat(gh).sort((a,b)=>a.date.localeCompare(b.date));
-  const past = S.bookings.filter(b=>b.sid===ME && isPast(b.date));
+  const past = S.bookings.filter(b=>b.sid===ME && isPast(b.date) && !b.absent);
   const thisMonth = past.filter(b=>b.date.startsWith(TODAY.slice(0,7))).length;
   let html = header('予定') + `<div class="wrap">`;
-  html += `<div class="sec" style="margin-top:0"><h4>これから</h4><div class="rows">${rows.map(b=> b._ghost ? ghostRow(fmtMD(b.date), b.id) : `<div class="row"><button class="mid" data-goto="${b.date}"><div class="t1">${fmtMD(b.date)}</div><div class="t2">${esc(b.set)}・<span class="num">${b.hour}時ごろ</span>${b.proxy?'・先生が入力':''}</div>${b.memo?`<div class="memo-line">${esc(b.memo)}</div>`:''}</button>${!isLessonState(b.date)?'<span class="r">休み</span>':isBookable(b.date)?`<button class="act" data-memoedit="${b.id}">${b.memo?'花材を直す':'花材を書く'}</button><button class="act danger" data-cancel="${b.id}">取り消す</button>`:`<span class="r">${b.date===TODAY?'今日':'受付終了'}</span><button class="act danger" data-cancel="${b.id}">取り消す</button>`}</div>`).join('') || '<div class="empty">予約はありません。</div>'}</div></div>`;
+  html += `<div class="sec" style="margin-top:0"><h4>これから</h4><div class="rows">${rows.map(b=> b._ghost ? ghostRow(fmtMD(b.date), b.id) : `<div class="row"><button class="mid" data-goto="${b.date}"><div class="t1">${fmtMD(b.date)}</div><div class="t2">${esc(b.set)}・<span class="num">${b.hour}時ごろ</span>${b.absent&&isBookable(b.date)?'・欠席':''}${b.proxy?'・先生が入力':''}</div>${wishesOf(b).length?`<div class="memo-line">${esc(wishesOf(b).join('・'))}</div>`:''}</button>${!isLessonState(b.date)?'<span class="r">休み</span>':isBookable(b.date)?`<button class="act danger" data-cancel="${b.id}">キャンセル</button>`:`<span class="r">${b.absent?'欠席':'確定'}</span>`}</div>`).join('') || '<div class="empty">予約はありません。</div>'}</div></div>`;
   html += `<div class="sec"><h4>出席</h4><dl class="kv"><dt>今月</dt><dd class="num">${thisMonth}回</dd><dt>累計</dt><dd class="num">${past.length}回</dd></dl></div>`;
   return html + `</div>`;
 }
@@ -582,7 +598,7 @@ function renderMine(){
 /* ---- 記録（S4） ---- */
 function renderRec(){
   const mine = S.records.filter(r=>r.sid===ME).sort((a,b)=>b.date.localeCompare(a.date));
-  const attended = S.bookings.filter(b=>b.sid===ME && b.date <= TODAY).map(b=>b.date);
+  const attended = S.bookings.filter(b=>b.sid===ME && b.date <= TODAY && !b.absent).map(b=>b.date);
   const missing = attended.filter(d=>!mine.some(r=>r.date===d));
   let html = header('記録') + `<div class="wrap">`;
   if(missing.length){ html += `<div class="box" style="margin-top:0"><div class="lbl">写真なし</div>${missing.map(d=>`<button class="row" data-recnew="${d}"><div class="mid"><div class="t1">${fmtMD(d)}</div></div><span class="r">記録する</span></button>`).join('')}</div>`; }
@@ -678,46 +694,68 @@ function renderNotice(){
   let html = header('お知らせ', whereRole()) + `<div class="wrap">`;
   if(S.role==='teacher') html += `<div class="box" style="margin-top:0"><dl class="kv"><dt>今月の残り</dt><dd class="num">${Math.max(0,LIMIT-monthCount())}通</dd></dl></div><div class="actions"><button class="btn" data-noticenew="1">送る</button></div>`;
   const visible = S.role==='teacher' ? S.notices : S.notices.filter(n=>n.to==='all' || S.bookings.some(b=>b.sid===ME && b.date===n.to));
-  html += `<div class="sec"><div class="rows">${visible.slice().sort((a,b)=>b.at.localeCompare(a.at)).map(n=>`<div class="row"><div class="mid"><div class="t1">${esc(n.text)}</div><div class="t2"><span class="num">${esc(n.at)}</span>${S.role==='teacher'?`　${n.to==='all'?'全員':fmtM(n.to)+'の予約者'}・<span class="num">${n.count}通</span>`:''}</div></div></div>`).join('')}</div></div>`;
+  html += `<div class="sec"><div class="rows">${visible.slice().sort((a,b)=>b.at.localeCompare(a.at)).map(n=>`<button class="row" data-notice="${n.id}"><div class="mid"><div class="t1">${esc(n.title||'お知らせ')}</div><div class="t2" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.text)}</div><div class="t2"><span class="num">${esc(n.at.slice(0,10))}</span>${S.role==='teacher'?`　${n.to==='all'?'全員':fmtM(n.to)+'の予約者'}・<span class="num">${n.count}通</span>`:''}</div></div><span class="chev">›</span></button>`).join('') || '<div class="empty">お知らせはありません</div>'}</div></div>`;
   return html + `</div>`;
 }
+function renderNoticeItem(v){
+  const n = S.notices.find(x=>x.id===v.id); if(!n) return header('', '', 'お知らせ');
+  return header('', '', 'お知らせ') + `<div class="wrap"><h2 class="t">${esc(n.title||'お知らせ')}</h2><div class="muted small" style="margin-top:6px"><span class="num">${esc(n.at)}</span>${S.role==='teacher'?`　${n.to==='all'?'全員':fmtM(n.to)+'の予約者'}・<span class="num">${n.count}通</span>`:''}</div><div class="box" style="white-space:pre-wrap;line-height:1.7">${esc(n.text)}</div></div>`;
+}
 function renderNoticeNew(){
-  const d = S.noticeDraft || {text:'',to:'all'}; S.noticeDraft = d;
+  const d = S.noticeDraft || {title:'',text:'',to:'all'}; S.noticeDraft = d;
   const upcoming = Object.keys(S.days).filter(k=>isLessonState(k) && !isPast(k)).sort().slice(0,6);
   const count = noticeCount(d.to);
   const over = monthCount()+count > LIMIT;
   let html = header('', '', 'お知らせ') + `<div class="wrap"><h2 class="t">新しいお知らせ</h2>`;
   html += `<div class="f"><label>宛先</label><div class="pill"><button data-nto="all" class="${d.to==='all'?'on':''}">全員</button>${upcoming.map(k=>`<button data-nto="${k}" class="${d.to===k?'on':''}">${fmtM(k)}の予約者</button>`).join('')}</div></div>`;
+  html += `<div class="f"><label>タイトル</label><input data-ntitle value="${esc(d.title||'')}" placeholder="例: 11月の休み"></div>`;
   html += `<div class="f"><label>本文</label><textarea data-ntext>${esc(d.text)}</textarea></div>`;
   html += `<div class="box"><dl class="kv"><dt>届く人</dt><dd class="num">${count}人</dd><dt>使う通数</dt><dd class="num">${count}通</dd><dt>今月の残り</dt><dd class="num">${Math.max(0,LIMIT-monthCount())}通</dd><dt>送ったあと</dt><dd class="num">${over?'不足':`${LIMIT-monthCount()-count}通`}</dd></dl></div>`;
-  html += `<div class="actions"><button class="btn" data-nsend="1" ${d.text.trim()&&!over?'':'disabled'}>送る</button><button class="btn ghost" data-back="1">やめる</button></div>`;
+  html += `<div class="actions"><button class="btn" data-nsend="1" ${d.text.trim()&&String(d.title||'').trim()&&!over?'':'disabled'}>送る</button><button class="btn ghost" data-back="1">やめる</button></div>`;
   return html + `</div>`;
 }
-function noticeCount(to){ return to==='all' ? S.students.filter(s=>s.mode!=='noline').length : bookingsOf(to).filter(b=>student(b.sid)?.mode!=='noline').length; }
+function noticeCount(to){ return to==='all' ? S.students.length : bookingsOf(to).length; }
 
 /* ---- 発注（T3） ---- */
+/* 生花のときだけ、先生が決めた候補から花材と本数を選ぶ。花展の練習は持ち込みなので自由記述だけ */
+function flowerPicker(set, fl, attrI, attrC){
+  if(set !== '生花') return '';
+  const o = S.flowerOpts || DEFAULTS.flowerOpts; fl = fl || {};
+  return G('生花の花材', o.items.map(x=>R(esc(x), '', {data:`${attrI}="${esc(x)}"`, check: fl.item===x})).join('') || R('候補がありません',''))
+    + (o.counts.length ? `<div class="group-h"><span>本数</span></div><div class="segc">${o.counts.map(n=>`<button ${attrC}="${n}" class="${fl.item&&fl.count===n?'on':''}"${fl.item?'':' disabled'}><span class="num">${n}本</span></button>`).join('')}</div>` : '');
+}
+const flowerText = b => (b && b.flower && b.flower.item) ? `${b.flower.item}${b.flower.count?' '+b.flower.count+'本':''}` : '';
+function wishesOf(b){ const r = []; if(b.flower && b.flower.item) r.push(`${b.flower.item}${b.flower.count?' '+b.flower.count+'本':''}`); if(b.memo) r.push(b.memo); return r; }
 function renderOrder(){
   const t = parse(TODAY); const sunday = ymd(addDays(t, -t.getDay()));
   const targets = Object.keys(S.days).filter(k=>isLessonState(k) && deadline(k)===sunday).sort();
   let html = header('発注', '') + `<div class="wrap"><div class="muted small">締め切り <span class="num">${fmtMD(sunday)}</span> の分</div>`;
   let text = '';
-  for(const k of targets){ const list = bookingsOf(k); const counts = {}; for(const b of list) counts[b.set]=(counts[b.set]||0)+1;
+  for(const k of targets){ const list = bookingsOf(k).filter(b=>!b.absent); const counts = {}; for(const b of list) counts[b.set]=(counts[b.set]||0)+1;
     const lines = SETS.filter(x=>counts[x]).map(x=>`${x} ${counts[x]}`);
-    const wishes = list.filter(b=>b.memo).map(b=>`${b.memo}（${student(b.sid)?.name}）`);
-    html += `<div class="sec"><h3 class="t">${fmtMD(k)}</h3><dl class="kv" style="margin-top:8px">${SETS.filter(x=>counts[x]).map(x=>`<dt>${esc(x)}</dt><dd class="num">${counts[x]}</dd>`).join('')}<dt>合計</dt><dd class="num">${list.length}人</dd></dl>${wishes.length?`<h4 style="margin-top:12px">花材の希望</h4><dl class="kv">${list.filter(b=>b.memo).map(b=>`<dt>${esc(student(b.sid)?.name)}</dt><dd>${esc(b.memo)}</dd>`).join('')}</dl>`:''}</div>`;
+    const wc = {}; for(const b of list){ for(const w of wishesOf(b)) wc[w] = (wc[w]||0) + 1; }
+    const wishes = Object.entries(wc).map(([w,n])=>n>1?`${w} ×${n}`:w);
+    html += `<div class="sec"><h3 class="t">${fmtMD(k)}</h3><dl class="kv" style="margin-top:8px">${SETS.filter(x=>counts[x]).map(x=>`<dt>${esc(x)}</dt><dd class="num">${counts[x]}</dd>`).join('')}<dt>合計</dt><dd class="num">${list.length}人</dd></dl>${wishes.length?`<h4 style="margin-top:12px">花材の希望</h4><div class="box" style="margin-top:0">${wishes.map(esc).join('<br>')}</div>`:''}</div>`;
     if(lines.length) text += `${fmtMD(k)}\n${lines.join('\n')}${wishes.length?'\n希望: '+wishes.join('、'):''}\n\n`;
   }
+  const fo = S.flowerOpts || DEFAULTS.flowerOpts;
+  const optsHtml = `<div class="sec"><h4>生花の花材の候補</h4><div class="rows">${fo.items.map((x,i)=>`<div class="row"><div class="mid"><div class="t1">${esc(x)}</div></div><button class="act danger" data-fdel="${i}">削除</button></div>`).join('') || '<div class="empty">候補がありません</div>'}</div><div class="inline"><input data-fnew value="${esc(S.fnew||'')}" placeholder="花材の名前"><button class="btn sm" data-fadd="1">追加する</button></div></div><div class="sec"><h4>生花の本数の候補</h4><div class="f" style="margin-top:0"><input data-fcounts value="${fo.counts.join(' ')}" placeholder="例: 5 7 9"></div></div>`;
   if(!targets.length) html += `<div class="empty">この週に開く日はありません。</div>`;
   else html += `<div class="sec"><h4>業者に送る文面</h4><div class="copybox" id="orderText">${esc(text.trim())}</div><div class="actions"><button class="btn ghost" data-copy="1">文面をコピーする</button></div></div>`;
-  return html + `</div>`;
+  return html + optsHtml + `</div>`;
 }
 
 /* ---- 名簿（T4） ---- */
+function rosterRows(){
+  const q = norm(S.rq||'');
+  const list = S.students.filter(x=>!q || norm(x.name).includes(q));
+  return list.map(x=>`<button class="row" data-student="${x.id}"><div class="mid"><div class="t1">${esc(x.name)}</div><div class="t2">${x.course.join('・')||'—'}</div></div><span class="chev">›</span></button>`).join('') || '<div class="empty">見つかりません</div>';
+}
 function renderRoster(){
   let html = header('名簿', '') + `<div class="wrap">`;
-  for(const g of ['self','teacher','noline']){ const list = S.students.filter(s=>s.mode===g);
-    html += `<div class="sec ${g==='self'?'':''}" ${g==='self'?'style="margin-top:0"':''}><h4>${MODES[g]} <span class="num">${list.length}人</span></h4><div class="rows">${list.map(s=>`<button class="row" data-student="${s.id}"><div class="mid"><div class="t1">${esc(s.name)}</div><div class="t2">${s.course.join('・')||'—'}</div></div><span class="chev">›</span></button>`).join('')||'<div class="empty">いません。</div>'}</div></div>`; }
-  html += S.newStudent===undefined ? `<div class="actions"><button class="btn ghost" data-studentnew="1">生徒を足す</button></div>` : `<div class="sec"><h4>生徒を足す</h4><div class="inline"><input data-newstudent value="${esc(S.newStudent)}" placeholder="名前"><button class="btn sm" data-studentadd="1">足す</button></div></div>`;
+  html += `<div class="search"><input type="search" data-rsearch value="${esc(S.rq||'')}" placeholder="名前で探す"></div>`;
+  html += `<div class="sec" style="margin-top:12px"><h4>生徒 <span class="num">${S.students.length}人</span></h4><div class="rows" id="rosterRows">${rosterRows()}</div></div>`;
+  html += S.newStudent===undefined ? `<div class="actions"><button class="btn ghost" data-studentnew="1">生徒を追加する</button></div>` : `<div class="sec"><h4>生徒を追加する</h4><div class="inline"><input data-newstudent value="${esc(S.newStudent)}" placeholder="名前"><button class="btn sm" data-studentadd="1">追加する</button></div></div>`;
   return html + `</div>`;
 }
 function renderStudentPage(v){
@@ -725,10 +763,9 @@ function renderStudentPage(v){
   const up = S.bookings.filter(b=>b.sid===st.id && !isPast(b.date)).sort((a,b)=>a.date.localeCompare(b.date));
   const recs = S.records.filter(r=>r.sid===st.id).sort((a,b)=>b.date.localeCompare(a.date));
   let html = header('', '', '名簿') + `<div class="wrap"><h2 class="t">${esc(st.name)}</h2>`;
-  html += `<div class="sec"><h4>区分</h4><div class="seg">${Object.entries(MODES).map(([k,n])=>`<button data-mode="${k}" class="${st.mode===k?'on':''}">${n}</button>`).join('')}</div></div>`;
   if(FEATURES.zukan) html += `<div class="sec"><h4>図鑑での名前</h4><div class="seg"><button data-display="name" class="${st.display==='name'?'on':''}">名前を出す</button><button data-display="none" class="${st.display==='none'?'on':''}">出さない</button></div></div>`;
   html += `<div class="sec"><h4>課程</h4><div class="pill">${COURSES.map(c=>`<button data-course="${c}" class="${st.course.includes(c)?'on':''}">${c}</button>`).join('')}</div></div>`;
-  html += `<div class="sec"><div class="sec-head"><h4>これから</h4><button class="btn sm" data-proxysid="${st.id}">予約を入れる</button></div><div class="rows">${up.map(b=>`<div class="row"><div class="mid"><div class="t1">${fmtMD(b.date)}</div><div class="t2">${esc(b.set)}・<span class="num">${b.hour}時ごろ</span>${b.proxy?'　<span class="tag">先生が入力</span>':''}</div>${b.memo?`<div class="memo-line">${esc(b.memo)}</div>`:''}</div></div>`).join('')||'<div class="empty">予約はありません。</div>'}</div></div>`;
+  html += `<div class="sec"><div class="sec-head"><h4>これから</h4><button class="btn sm" data-proxysid="${st.id}">予約を入れる</button></div><div class="rows">${up.map(b=>`<div class="row"><div class="mid"><div class="t1">${fmtMD(b.date)}</div><div class="t2">${esc(b.set)}・<span class="num">${b.hour}時ごろ</span>${b.absent?'　<span class="tag">欠席</span>':''}${b.proxy?'　<span class="tag">先生が入力</span>':''}</div>${wishesOf(b).length?`<div class="memo-line">${esc(wishesOf(b).join('・'))}</div>`:''}</div></div>`).join('')||'<div class="empty">予約はありません。</div>'}</div></div>`;
   html += `<div class="sec"><h4>記録</h4><div class="grid3">${recs.map(r=>`<button class="card" data-recedit="${r.id}">${photoHtml(r.photo)}<div class="cap"><div class="m">${fmtM(r.date)}</div></div></button>`).join('')}</div>${recs.length?'':'<div class="empty">記録はまだありません。</div>'}</div>`;
   return html + `</div>`;
 }
@@ -747,48 +784,101 @@ function pushNav(k){ try{ history.pushState({k}, ''); }catch(e){} }
 function closeSheet(){ const el = document.getElementById('sheet'); el.innerHTML=''; el.onclick=null; el.oninput=null; sheetOpen = false; }
 function closeSheetUI(){ const pushed = history.state && history.state.k==='sheet'; closeSheet(); if(pushed){ ignorePop++; history.back(); } }
 function openSheet(){ sheetOpen = true; pushNav('sheet'); hideToast(); }
+function proxyNames(d){
+  const q = norm(d.q||'');
+  const cands = S.students.filter(x=>!bookingsOf(d.date).some(b=>b.sid===x.id) && (!q || norm(x.name).includes(q)));
+  return cands.map(x=>R(esc(x.name), '', {data:`data-psid="${x.id}"`, check: d.sid===x.id})).join('') || R('見つかりません','');
+}
 function openProxy(opts){
-  const fixedDate = opts.date || null, fixedSid = opts.sid || null;
-  const d = {date:fixedDate, sid:fixedSid, set:null, hour:null, memo:'', period:null};
-  if(fixedSid){ d.set = defaultSet(fixedSid, fixedDate) || null; d.hour = defaultHour(fixedSid) || null; }
+  const eb = opts.edit ? S.bookings.find(x=>x.id===opts.edit) : null; if(opts.edit && !eb) return;
+  const fixedDate = eb ? eb.date : (opts.date || null), fixedSid = eb ? eb.sid : (opts.sid || null);
+  const d = {date:fixedDate, sid:fixedSid, set:null, hour:null, memo:'', period:null, flower:null, absent:false};
+  if(eb){ Object.assign(d, {set:eb.set, hour:eb.hour, memo:eb.memo||'', flower: eb.flower ? {...eb.flower} : null, absent: !!eb.absent, setTouched:true, hourTouched:true}); }
+  else if(fixedSid){ d.set = defaultSet(fixedSid, fixedDate) || null; d.hour = defaultHour(fixedSid) || null; }
   const el = document.getElementById('sheet'); openSheet();
-  el.oninput = e => { if(e.target.dataset.pmemo !== undefined) d.memo = e.target.value; };
+  el.oninput = e => { if(e.target.dataset.pmemo !== undefined) d.memo = e.target.value; if(e.target.dataset.psearch !== undefined){ d.q = e.target.value; const box = el.querySelector('#psNames'); if(box) box.innerHTML = proxyNames(d); } };
   const draw = () => {
     const prev = el.querySelector('.sheet'); const sc = prev ? prev.scrollTop : 0;
     const by = d.date ? loadByHour(d.date) : null;
     const part = (v, empty) => v ? esc(v) : `<span class="muted">${empty}</span>`;
-    const title = fixedDate ? fmtMD(fixedDate) : `${esc(student(fixedSid).name)}さん`;
+    const title = eb ? `${esc(student(eb.sid)?.name)}さん・${fmtM(eb.date)}` : fixedDate ? fmtMD(fixedDate) : `${esc(student(fixedSid).name)}さん`;
     let sec = '';
     if(!fixedDate){
       const dates = Object.keys(S.days).filter(k=>isLessonState(k) && k>=TODAY && !S.bookings.some(b=>b.date===k && b.sid===fixedSid)).sort();
       sec += G('日付', dates.map(k=>R(fmtMD(k), S.days[k]==='kenkyu'?'研究会':'', {data:`data-pdate="${k}"`, check: d.date===k})).join('') || R('入れられる日がありません',''));
     }
+    if(eb && !isBookable(eb.date)) sec += `<div class="group-h"><span>出欠</span></div><div class="segc"><button data-pabs="0" class="${!d.absent?'on':''}">出席</button><button data-pabs="1" class="${d.absent?'on':''}">欠席</button></div>`;
     if(!fixedSid){
-      const cands = S.students.filter(x=>!bookingsOf(d.date).some(b=>b.sid===x.id));
-      sec += G('名前', cands.map(x=>R(esc(x.name), '', {data:`data-psid="${x.id}"`, check: d.sid===x.id})).join(''));
+      sec += `<div class="group-h"><span>名前</span></div><div class="group"><label class="cellrow input"><input type="search" data-psearch value="${esc(d.q||'')}" placeholder="名前で探す"></label></div><div class="group" id="psNames" style="margin-top:8px">${proxyNames(d)}</div>`;
     }
     sec += G('セット', SETS.map(x=>R(esc(x), '', {data:`data-pset="${esc(x)}"`, check: d.set===x})).join(''));
     sec += `<div class="group-h"><span>来る時間</span><span class="gh-r">席 ${SEATS}</span></div>` + timeSegments(by, d.hour, d.period, 'data-phour', 'data-pperiod');
-    sec += G('花材の希望', `<label class="cellrow input"><input data-pmemo value="${esc(d.memo||'')}" placeholder="例: アカメヤナギ 5本"></label>`);
+    sec += flowerPicker(d.set, d.flower, 'data-pfitem', 'data-pfcount');
+    sec += G('花材の希望', `<label class="cellrow input"><input data-pmemo value="${esc(d.memo||'')}" placeholder="${d.set==='花展の練習'?'例: 持ち込む花材':'自由に書く'}"></label>`);
     const sum = fixedDate ? `<b>${part(d.sid?student(d.sid).name:'','名前')}</b><br>${part(d.set,'セット')}・${part(d.hour?d.hour+'時ごろ':'','時間')}`
                           : `<b>${part(d.date?fmtM(d.date):'','日付')}</b><br>${part(d.set,'セット')}・${part(d.hour?d.hour+'時ごろ':'','時間')}`;
     el.innerHTML = `<div class="sheet-wrap"><div class="sheet-bg" data-close="1"></div><div class="sheet">
       <div class="sheet-head"><button data-close="1">閉じる</button><h3 class="t">${title}</h3><span></span></div>${sec}
-      <div class="sheet-foot"><div class="sum">${sum}</div><button class="btn" data-psave="1" ${d.date&&d.sid&&d.set&&d.hour?'':'disabled'}>入れる</button></div></div></div>`;
+      <div class="sheet-foot"><div class="sum">${sum}</div><button class="btn" data-psave="1" ${d.date&&d.sid&&d.set&&d.hour?'':'disabled'}>${eb?'保存する':'入れる'}</button></div></div></div>`;
     const nx = el.querySelector('.sheet'); if(nx) nx.scrollTop = sc;
   };
   draw();
-  el.onclick = e => { if(Date.now() < lockUntil) return; const t = e.target.closest('[data-close],[data-pdate],[data-psid],[data-pset],[data-phour],[data-pperiod],[data-psave]'); if(!t || t.disabled) return;
+  el.onclick = e => { if(Date.now() < lockUntil) return; const t = e.target.closest('[data-close],[data-pdate],[data-psid],[data-pset],[data-phour],[data-pperiod],[data-psave],[data-pfitem],[data-pfcount],[data-pabs]'); if(!t || t.disabled) return;
+    if(t.dataset.pfitem){ d.flower = (d.flower && d.flower.item===t.dataset.pfitem) ? null : {item:t.dataset.pfitem, count: d.flower && d.flower.item ? d.flower.count : null}; draw(); }
+    if(t.dataset.pfcount){ if(!(d.flower && d.flower.item)) return; const n = Number(t.dataset.pfcount); d.flower = {...(d.flower||{}), count: (d.flower && d.flower.count===n) ? null : n}; draw(); }
+    if(t.dataset.pabs !== undefined){ d.absent = t.dataset.pabs==='1'; draw(); }
     if(t.dataset.close){ closeSheetUI(); return; }
     if(t.dataset.pdate){ d.date = t.dataset.pdate; if(!d.setTouched) d.set = defaultSet(d.sid, d.date) || d.set; draw(); }
     if(t.dataset.psid){ d.sid = t.dataset.psid; if(!d.setTouched) d.set = defaultSet(d.sid, d.date) || d.set; if(!d.hourTouched) d.hour = defaultHour(d.sid) || d.hour; d.period = null; draw(); }
     if(t.dataset.pset){ d.set = t.dataset.pset; d.setTouched = true; draw(); }
     if(t.dataset.pperiod !== undefined){ d.period = Number(t.dataset.pperiod); draw(); }
     if(t.dataset.phour){ d.hour = Number(t.dataset.phour); d.hourTouched = true; d.period = null; draw(); }
-    if(t.dataset.psave){ if(!(d.date&&d.sid&&d.set&&d.hour)) return; if(S.bookings.some(b=>b.date===d.date && b.sid===d.sid)) return;
-      const b = {id:uid(), date:d.date, sid:d.sid, set:d.set, hour:d.hour, proxy:true, memo:String(d.memo||'').trim()}; S.bookings.push(b); save(); closeSheetUI(); keep(); render();
+    if(t.dataset.psave){ if(!(d.date&&d.sid&&d.set&&d.hour)) return;
+      const fl = d.set==='生花' && d.flower && d.flower.item ? {...d.flower} : null;
+      if(eb){ Object.assign(eb, {set:d.set, hour:d.hour, memo:String(d.memo||'').trim(), flower:fl, absent:d.absent}); save(); closeSheetUI(); keep(); render(); toast(`${student(eb.sid).name}さんの予約内容を変更しました`); return; }
+      if(S.bookings.some(b=>b.date===d.date && b.sid===d.sid)) return;
+      const b = {id:uid(), date:d.date, sid:d.sid, set:d.set, hour:d.hour, proxy:true, memo:String(d.memo||'').trim(), flower:fl}; S.bookings.push(b); save(); closeSheetUI(); keep(); render();
       toast(`${student(d.sid).name}さんを${fmtM(d.date)}に入れました`, ()=>{ S.bookings = S.bookings.filter(x=>x.id!==b.id); save(); render(); }); }
   };
+}
+
+function openAction(title, row, sub, okLabel, okCls, onOk){
+  const el = document.getElementById('sheet'); openSheet();
+  el.innerHTML = `<div class="sheet-wrap"><div class="sheet-bg" data-close="1"></div><div class="sheet">
+    <div class="sheet-head"><span></span><h3 class="t">${title}</h3><span></span></div>
+    ${G('', R(row, '', {sub}))}
+    ${G('', R(okLabel,'',{data:'data-aok="1"', cls:okCls}), {gap:true})}
+    ${G('', R('やめる','',{data:'data-close="1"', cls:'tint'}), {gap:true})}
+    <div style="height:calc(24px + env(safe-area-inset-bottom,0px))"></div></div></div>`;
+  el.onclick = e => { if(Date.now() < lockUntil) return; const t = e.target.closest('[data-close],[data-aok]'); if(!t) return;
+    closeSheetUI(); if(t.dataset.aok) onOk(); };
+}
+function openAbsent(id){
+  const b = S.bookings.find(x=>x.id===id); if(!b) return;
+  openAction('欠席の連絡', fmtMD(b.date), `${esc(b.set)}・<span class="num">${b.hour}時ごろ</span>`, '欠席を連絡する', 'tint', () => {
+    b.absent = true; keep(); save(); render(); toast(`${fmtM(b.date)}の欠席を連絡しました`);
+  });
+}
+function openConfirm(id){
+  const b = S.bookings.find(x=>x.id===id); if(!b) return;
+  const el = document.getElementById('sheet'); openSheet();
+  const who = S.role==='teacher' ? `${esc(student(b.sid)?.name)}さん・` : '';
+  const late = !isBookable(b.date);
+  el.innerHTML = `<div class="sheet-wrap"><div class="sheet-bg" data-close="1"></div><div class="sheet">
+    <div class="sheet-head"><span></span><h3 class="t">予約のキャンセル</h3><span></span></div>
+    ${G('', R(`${fmtMD(b.date)}`, '', {sub:`${who}${esc(b.set)}・<span class="num">${b.hour}時ごろ</span>${late?'・確定':''}`}))}
+    ${G('', R('予約をキャンセルする','',{data:'data-cok="1"', cls:'danger'}), {gap:true})}
+    ${G('', R('やめる','',{data:'data-close="1"', cls:'tint'}), {gap:true})}
+    <div style="height:calc(24px + env(safe-area-inset-bottom,0px))"></div></div></div>`;
+  el.onclick = e => { if(Date.now() < lockUntil) return; const t = e.target.closest('[data-close],[data-cok]'); if(!t) return;
+    if(t.dataset.close){ closeSheetUI(); return; }
+    if(t.dataset.cok){ closeSheetUI(); doCancel(id); }
+  };
+}
+function doCancel(id){
+  if(locked()) return; const i = S.bookings.findIndex(x=>x.id===id); if(i<0) return;
+  const [b] = S.bookings.splice(i,1); S.ghosts = (S.ghosts || []).filter(g=>!(g.b.sid===b.sid && g.b.date===b.date)); S.ghosts.push({b});
+  if(S.changing===id) S.changing = null; keep(); save(); render(); toast(`${fmtM(b.date)}の予約をキャンセルしました`);
 }
 
 function openMemo(id){
@@ -858,9 +948,12 @@ app.addEventListener('input', e => {
   if(t.dataset.memo !== undefined){ S.draft[S.sel] = {...(S.draft[S.sel]||{}), memo:t.value}; save(); return; }
   if(t.dataset.newmat !== undefined){ S.newMat = t.value; return; }
   if(t.dataset.newstudent !== undefined){ S.newStudent = t.value; return; }
+  if(t.dataset.fnew !== undefined){ S.fnew = t.value; return; }
+  if(t.dataset.fcounts !== undefined){ const ns = (t.value.replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).match(/\d+/g)||[]).map(Number).filter(n=>n>0&&n<100); S.flowerOpts.counts = [...new Set(ns)].sort((a,b)=>a-b); save(); return; }
+  if(t.dataset.rsearch !== undefined){ S.rq = t.value; const box = document.getElementById('rosterRows'); if(box) box.innerHTML = rosterRows(); return; }
   if(t.dataset.note){ const r = S.records.find(x=>x.id===t.dataset.note); r.note = t.value; r.by = who(); save(); const b = t.parentElement.querySelector('.muted.small'); if(b) b.textContent = r.by; }
   if(t.dataset.wf){ S.wikiDraft[t.dataset.wf] = t.value; const b = document.querySelector('[data-wikisave]'); if(b) b.disabled = !S.wikiDraft.name.trim(); }
-  if(t.dataset.ntext !== undefined){ S.noticeDraft.text = t.value; const b = document.querySelector('[data-nsend]'); if(b) b.disabled = !t.value.trim() || (monthCount()+noticeCount(S.noticeDraft.to) > LIMIT); }
+  if(t.dataset.ntext !== undefined || t.dataset.ntitle !== undefined){ if(t.dataset.ntext !== undefined) S.noticeDraft.text = t.value; else S.noticeDraft.title = t.value; const b = document.querySelector('[data-nsend]'); if(b) b.disabled = !String(S.noticeDraft.text||'').trim() || !String(S.noticeDraft.title||'').trim() || (monthCount()+noticeCount(S.noticeDraft.to) > LIMIT); }
 });
 app.addEventListener('click', e => {
   hideToast();
@@ -878,14 +971,21 @@ app.addEventListener('click', e => {
   if(D.period !== undefined){ S.periodSel = {...(S.periodSel||{}), [S.sel]: Number(D.period)}; keep(); render(); return; }
   if(D.hour){ S.draft[S.sel] = {...(S.draft[S.sel]||{}), hour:Number(D.hour)}; if(S.periodSel) delete S.periodSel[S.sel]; keep(); save(); render(); return; }
   if(D.book){ S.periodSel = {}; const d = S.draft[S.sel] || {}; const ex = S.changing && S.bookings.find(x=>x.id===S.changing);
-    if(ex){ ex.set = d.set || ex.set; ex.hour = d.hour || ex.hour; ex.memo = String(d.memo||'').trim(); S.changing = null; delete S.draft[S.sel]; keep(); save(); render(); toast(`${fmtMD(S.sel)}の予約を変えました`); return; }
-    if(myBooking(S.sel)) return; S.bookings.push({id:uid(),date:S.sel,sid:ME,set:d.set,hour:d.hour,memo:String(d.memo||'').trim()}); delete S.draft[S.sel]; keep(); save(); render(); toast(`${fmtMD(S.sel)}を予約しました`); return; }
+    if(ex){ ex.set = d.set || ex.set; ex.hour = d.hour || ex.hour; ex.memo = String(d.memo||'').trim(); ex.flower = ex.set==='生花' && d.flower && d.flower.item ? {...d.flower} : null; S.changing = null; delete S.draft[S.sel]; keep(); save(); render(); toast(`${fmtMD(S.sel)}の予約内容を変更しました`); return; }
+    if(myBooking(S.sel)) return; S.bookings.push({id:uid(),date:S.sel,sid:ME,set:d.set,hour:d.hour,memo:String(d.memo||'').trim(),flower: d.set==='生花' && d.flower && d.flower.item ? {...d.flower} : null}); delete S.draft[S.sel]; keep(); save(); render(); toast(`${fmtMD(S.sel)}を予約しました`); return; }
   if(D.memoedit){ lockBriefly(); openMemo(D.memoedit); return; }
-  if(D.change){ S.periodSel = {}; S.changing = D.change; const b = S.bookings.find(x=>x.id===D.change); S.draft[S.sel] = {set:b.set, hour:b.hour, memo:b.memo||''}; keep(); save(); render(); return; }
+  if(D.pedit){ lockBriefly(); openProxy({edit:D.pedit}); return; }
+  if(D.absent){ lockBriefly(); openAbsent(D.absent); return; }
+  if(D.unabsent){ if(locked()) return; const b = S.bookings.find(x=>x.id===D.unabsent); if(!b) return; b.absent = false; keep(); save(); render(); toast(`${fmtM(b.date)}の欠席の連絡を取り消しました`); return; }
+  if(D.fitem){ const d = S.draft[S.sel] = {...(S.draft[S.sel]||{})}; d.flower = (d.flower && d.flower.item===D.fitem) ? null : {item:D.fitem, count: d.flower && d.flower.item ? d.flower.count : null}; keep(); save(); render(); return; }
+  if(D.fcount){ const n = Number(D.fcount); const d = S.draft[S.sel] = {...(S.draft[S.sel]||{})}; if(!(d.flower && d.flower.item)) return; d.flower = {...(d.flower||{}), count: (d.flower && d.flower.count===n) ? null : n}; keep(); save(); render(); return; }
+  if(D.fdel !== undefined){ S.flowerOpts.items.splice(Number(D.fdel),1); keep(); save(); render(); return; }
+  if(D.fadd){ const v = String(S.fnew||'').trim(); if(!v || S.flowerOpts.items.includes(v)) return; S.flowerOpts.items.push(v); S.fnew = ''; keep(); save(); render(); return; }
+  if(D.change){ S.periodSel = {}; S.changing = D.change; const b = S.bookings.find(x=>x.id===D.change); S.draft[S.sel] = {set:b.set, hour:b.hour, memo:b.memo||'', flower: b.flower ? {...b.flower} : null}; keep(); save(); render(); return; }
   if(D.changeoff){ S.periodSel = {}; S.changing = null; delete S.draft[S.sel]; keep(); save(); render(); return; }
-  if(D.cancel || D.proxycancel){ if(locked()) return; const id = D.cancel || D.proxycancel; const i = S.bookings.findIndex(x=>x.id===id); if(i<0) return;
-    const [b] = S.bookings.splice(i,1); S.ghosts = (S.ghosts || []).filter(g=>!(g.b.sid===b.sid && g.b.date===b.date)); S.ghosts.push({b});
-    if(S.role==='student' && b.date>=TODAY && !isBookable(b.date) && isLessonState(b.date)){ S.lateCancels = (S.lateCancels || []).filter(c=>c && !(c.sid===b.sid && c.date===b.date)); S.lateCancels.push({id:b.id, date:b.date, sid:b.sid, set:b.set, hour:b.hour, at:now()}); } if(S.changing===id) S.changing = null; keep(); save(); render(); return; }
+  if(D.cancel || D.proxycancel){ const id = D.cancel || D.proxycancel; const b = S.bookings.find(x=>x.id===id); if(!b) return;
+    if(D.cancel && !isCancellable(b.date)) return;   /* 生徒は締め切り後は取り消せない */
+    lockBriefly(); openConfirm(id); return; }
   /* 先生 */
   if(D.state){ if(locked()) return; const s = S.sel, prev = S.days[s]; if(prev===D.state) return; S.days[s] = D.state; keep(); save(); render(); toast(`${fmtM(s)}を${STATE_LABEL[D.state]}にしました`, () => { S.days[s] = prev; save(); render(); }); return; }
   if(D.proxy){ lockBriefly(); openProxy({date:D.proxy}); return; }
@@ -893,7 +993,7 @@ app.addEventListener('click', e => {
   if(D.copy){ const txt = document.getElementById('orderText').textContent; (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(()=>toast('コピーしました'), ()=>toast('コピーできませんでした')); return; }
   if(D.student){ go({name:'studentPage', id:D.student}); return; }
   if(D.studentnew){ S.newStudent = ''; keep(); render(); return; }
-  if(D.studentadd){ const name = String(S.newStudent||'').trim(); if(!name) return; S.students.push({id:uid(),name,mode:'self',course:[],display:'name'}); S.newStudent = undefined; save(); render(); toast(`${name}さんを足しました`); return; }
+  if(D.studentadd){ const name = String(S.newStudent||'').trim(); if(!name) return; S.students.push({id:uid(),name,mode:'self',course:[],display:'name'}); S.newStudent = undefined; save(); render(); toast(`${name}さんを追加しました`); return; }
   if(D.display){ student(S.view.id).display = D.display; keep(); save(); render(); return; }
   if(D.mode){ student(S.view.id).mode = D.mode; keep(); save(); render(); return; }
   if(D.course){ const st = student(S.view.id); st.course = st.course.includes(D.course) ? st.course.filter(c=>c!==D.course) : [...st.course, D.course]; keep(); save(); render(); return; }
@@ -931,8 +1031,9 @@ app.addEventListener('click', e => {
   if(D.sample){ go({name:'sample', id:D.sample, from:S.view}); return; }
   /* お知らせ */
   if(D.noticenew){ go({name:'noticeNew'}); return; }
+  if(D.notice){ go({name:'noticeItem', id:D.notice}); return; }
   if(D.nto){ S.noticeDraft.to = D.nto; keep(); render(); return; }
-  if(D.nsend){ const d = S.noticeDraft; const count = noticeCount(d.to); if(monthCount()+count > LIMIT) return; S.notices.push({id:uid(),at:now(),text:d.text.trim(),to:d.to,count}); S.noticeDraft = null; unwindViews(); S.view = null; save(); render(); toast(`${count}人に送りました`); return; }
+  if(D.nsend){ const d = S.noticeDraft; const count = noticeCount(d.to); if(monthCount()+count > LIMIT) return; if(!String(d.title||'').trim()) return; S.notices.push({id:uid(),at:now(),title:d.title.trim(),text:d.text.trim(),to:d.to,count}); S.noticeDraft = null; unwindViews(); S.view = null; save(); render(); toast(`${count}人に送りました`); return; }
   /* 試作用 */
   if(D.role){ unwindViews(); S.role = D.role; S.tab = 'cal'; S.view = null; S.draft = {}; S.ghosts = []; S.changing = null; save(); render(); return; }
   if(D.theme){ document.documentElement.dataset.theme = D.theme; try{localStorage.setItem(KEY+':theme', D.theme)}catch(e){} keep(); render(); return; }
