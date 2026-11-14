@@ -357,7 +357,7 @@ const DEFAULTS = {
     {id:'b24',date:'2026-10-15',sid:'s11',hour:11,set:'現代華'},{id:'b25',date:'2026-10-15',sid:'s8',hour:11,set:'現代華',proxy:true},{id:'b26',date:'2026-10-15',sid:'s10',hour:12,set:'生活花'},
     {id:'b27',date:'2026-10-15',sid:'s6',hour:12,set:'生花',proxy:true},{id:'b28',date:'2026-10-15',sid:'s7',hour:13,set:'基本花型'},{id:'b29',date:'2026-10-15',sid:'s4',hour:13,set:'現代華',proxy:true},
     {id:'b30',date:'2026-10-15',sid:'s1',hour:13,set:'現代華'},{id:'b31',date:'2026-10-15',sid:'s12',hour:18,set:'基本花型',proxy:true},
-    {id:'b32',date:'2026-10-18',sid:'s2',hour:13,set:'生花の部'},{id:'b33',date:'2026-10-18',sid:'s9',hour:13,set:'生花の部'},{id:'b34',date:'2026-10-18',sid:'s11',hour:14,set:'現代華の部'},
+    
     {id:'b35',date:'2026-10-22',sid:'s11',hour:11,set:'現代華'},{id:'b36',date:'2026-10-22',sid:'s2',hour:19,set:'生花'},
     {id:'b37',date:'2026-10-25',sid:'s3',hour:10,set:'基本花型'},{id:'b38',date:'2026-10-25',sid:'s9',hour:14,set:'生花'},{id:'b39',date:'2026-10-25',sid:'s1',hour:14,set:'現代華'},{id:'b40',date:'2026-10-25',sid:'s5',hour:16,set:'生活花'},
     {id:'b41',date:'2026-11-01',sid:'s2',hour:10,set:'生花'},{id:'b42',date:'2026-11-05',sid:'s11',hour:19,set:'現代華'}
@@ -389,6 +389,7 @@ const DEFAULTS = {
     {id:'e3',date:'2026-11-28',title:'忘年会',kind:'other',deadline:'2026-11-15',memo:'会費 5,000円',entries:['s3']}
   ],
   read: ['n2'],
+  kenkyu: { '2026-10-18': {s4:'furikae', s7:'absent'} },   // 研究会の日ごとの振替・欠席（書いていない人は参加）
   notices: [
     {id:'n3',at:'2026-10-03 20:10',title:'11月の稽古日',text:'11月の稽古日をカレンダーに入れました。19日以降はまだ未定です。決まりしだいお知らせします。',to:'all',count:12},
     {id:'n1',at:'2026-09-27 18:30',title:'10月の研究会',text:'10月18日（日）は研究会です。13時までに集まってください。持ち物は花ばさみと花器です。',to:'all',count:12},
@@ -409,7 +410,7 @@ let S = load();
 function load(){
   const def = Object.assign(structuredClone(DEFAULTS), { role:'student', month:{y:2026,m:10}, sel:'2026-10-08', tab:'cal', view:null, draft:{}, sort:'season', q:'', ghosts:[], lateCancels:[] });
   try{ const raw = localStorage.getItem(KEY); if(raw){ const o = JSON.parse(raw); const ok = o && typeof o==='object' && ['students','bookings','materials','records','notices'].every(k=>Array.isArray(o[k])) && o.days && typeof o.days==='object'; if(ok){ const st = Object.assign(def, o); if(!TABS[st.role]) st.role='student'; if(!TABS[st.role].some(([k])=>k===st.tab)) st.tab='cal'; st.view = null; st.ghosts = []; if(!st.draft || typeof st.draft!=='object' || Array.isArray(st.draft)) st.draft = {}; if(!st.month || !(st.month.m>=1 && st.month.m<=12) || !st.month.y) st.month = {y:2026,m:10}; if(typeof st.sel!=='string') st.sel = '2026-10-08'; st.seasonOverride = null; st.periodSel = {}; if(!st.flowerOpts || !Array.isArray(st.flowerOpts.items) || !Array.isArray(st.flowerOpts.counts)) st.flowerOpts = structuredClone(DEFAULTS.flowerOpts);
-    if(!Array.isArray(st.lateCancels)) st.lateCancels = []; if(!Array.isArray(st.events)) st.events = structuredClone(DEFAULTS.events); const YMD = /^\d{4}-\d{2}-\d{2}$/; st.events = st.events.filter(e=>e && typeof e==='object' && typeof e.date==='string' && YMD.test(e.date)); const seen = new Set(); for(const e of st.events){ if(!Array.isArray(e.entries)) e.entries = []; e.entries = e.entries.filter(x=>typeof x==='string'); if(typeof e.deadline!=='string' || !YMD.test(e.deadline)) e.deadline = null; if(typeof e.memo!=='string') e.memo = ''; if(!e.id || seen.has(e.id)) e.id = 'e' + Math.random().toString(36).slice(2,9); seen.add(e.id); e.title = String(e.title||'行事'); if(e.kind!=='katen' && e.kind!=='other') e.kind = /花展/.test(e.title) ? 'katen' : 'other'; } if(!Array.isArray(st.read)) st.read = []; for(const k of ['students','bookings','materials','records','notices','lateCancels']) st[k] = st[k].filter(x=>x && typeof x==='object'); st.bookings = st.bookings.filter(b=>typeof b.date==='string');
+    if(!Array.isArray(st.lateCancels)) st.lateCancels = []; if(!Array.isArray(st.events)) st.events = structuredClone(DEFAULTS.events); const YMD = /^\d{4}-\d{2}-\d{2}$/; st.events = st.events.filter(e=>e && typeof e==='object' && typeof e.date==='string' && YMD.test(e.date)); const seen = new Set(); for(const e of st.events){ if(!Array.isArray(e.entries)) e.entries = []; e.entries = e.entries.filter(x=>typeof x==='string'); if(typeof e.deadline!=='string' || !YMD.test(e.deadline)) e.deadline = null; if(typeof e.memo!=='string') e.memo = ''; if(!e.id || seen.has(e.id)) e.id = 'e' + Math.random().toString(36).slice(2,9); seen.add(e.id); e.title = String(e.title||'行事'); if(e.kind!=='katen' && e.kind!=='other') e.kind = /花展/.test(e.title) ? 'katen' : 'other'; } if(!Array.isArray(st.read)) st.read = []; if(!st.kenkyu || typeof st.kenkyu!=='object' || Array.isArray(st.kenkyu)) st.kenkyu = {}; for(const k of Object.keys(st.kenkyu)){ const m = st.kenkyu[k]; if(!m || typeof m!=='object' || Array.isArray(m)){ delete st.kenkyu[k]; continue; } for(const sid of Object.keys(m)) if(m[sid]!=='furikae' && m[sid]!=='absent') delete m[sid]; } for(const k of ['students','bookings','materials','records','notices','lateCancels']) st[k] = st[k].filter(x=>x && typeof x==='object'); st.bookings = st.bookings.filter(b=>typeof b.date==='string');
     const mig = v => v==='基礎' ? '基本花型' : v==='持ち込み' ? '花展の練習' : v;
     for(const x of st.students) if(Array.isArray(x.course)) x.course = x.course.map(mig);
     for(const b of st.bookings){ b.set = mig(b.set); if(st.days[b.date]==='kenkyu' && b.set==='研究会の練習') b.set = partOf((st.students.find(x=>x.id===b.sid)||{}).course); }
@@ -448,15 +449,24 @@ const evKind = e => e && e.kind==='katen' ? 'katen' : 'other';
 const kdot = k => `<i class="kd k-${k}"></i>`;
 const evShort = t => String(t||'').length > 3 ? String(t).slice(0,3) : String(t||'');
 const unreadCount = () => S.role==='student' ? visibleNotices().filter(n=>!(S.read||[]).includes(n.id)).length : 0;
-function visibleNotices(){ return S.role==='teacher' ? S.notices : S.notices.filter(n=>n.to==='all' || S.bookings.some(b=>b.sid===ME && b.date===n.to)); }
+function visibleNotices(){ return S.role==='teacher' ? S.notices : S.notices.filter(n=>n.to==='all' || (S.days[n.to]==='kenkyu' ? kStatus(n.to, ME)!=='absent' : S.bookings.some(b=>b.sid===ME && b.date===n.to))); }
 const setsFor = d => isKenkyu(d) ? PARTS : SETS;
 const setLabel = d => isKenkyu(d) ? '部' : 'セット';
 function defaultSet(sid, date){ if(isKenkyu(date)) return partOf(student(sid)?.course); const st = student(sid); const c = st && st.course && st.course[0]; return SETS.includes(c) ? c : undefined; }
 function defaultHour(sid){ const mine = S.bookings.filter(b=>b.sid===sid); const past = mine.filter(b=>b.date<=TODAY).sort((a,b)=>b.date.localeCompare(a.date)); if(past.length) return past[0].hour; const fut = mine.sort((a,b)=>a.date.localeCompare(b.date)); return fut.length ? fut[0].hour : undefined; }
 const student = id => S.students.find(x=>x.id===id);
 const material = id => S.materials.find(x=>x.id===id);
-const bookingsOf = date => S.bookings.filter(b=>b.date===date);
-const myBooking = date => S.bookings.find(b=>b.date===date && b.sid===ME);
+const bookingsOf = date => S.days[date]==='kenkyu' ? [] : S.bookings.filter(b=>b.date===date);   // 研究会の日は予約を使わない
+const myBooking = date => S.days[date]==='kenkyu' ? undefined : S.bookings.find(b=>b.date===date && b.sid===ME);
+const kStatus = (date, sid) => ((S.kenkyu||{})[date]||{})[sid] || 'attend';
+const K_LABEL = {attend:'参加', furikae:'振替', absent:'欠席'};
+const kFriday = date => { const d = parse(date); const back = ((d.getDay() - 5 + 7) % 7) || 7; return ymd(addDays(d, -back)); };   // 振替・欠席の受付は前の金曜まで
+const kSaturday = date => { const d = parse(date); const back = ((d.getDay() - 6 + 7) % 7) || 7; return ymd(addDays(d, -back)); };   // 振替は前日の土曜
+const kOpen = date => TODAY <= kFriday(date);
+const kFurikaeOf = sat => Object.keys(S.days).filter(k=>S.days[k]==='kenkyu' && kSaturday(k)===sat);   // その土曜が振替日になる研究会
+const kAttendN = date => S.students.filter(st=>kStatus(date, st.id)==='attend').length;
+function setK(date, sid, v){ S.kenkyu = S.kenkyu || {}; const m = S.kenkyu[date] = S.kenkyu[date] || {}; if(v==='attend') delete m[sid]; else m[sid] = v; }
+const toLabel = to => to==='all' ? '全員' : fmtM(to) + (S.days[to]==='kenkyu' ? 'の参加者' : 'の予約者');
 function loadByHour(date, excludeId){
   const map = Object.fromEntries(HOURS.map(h=>[h,0]));
   for(const b of bookingsOf(date)){ if(b.id===excludeId || b.absent) continue; for(let k=0;k<STAY;k++){ const h=b.hour+k; if(map[h]!==undefined) map[h]++; } }
@@ -544,6 +554,7 @@ function renderNext(){
   const ds = Object.keys(S.days).filter(k=>isLessonState(k) && k>=TODAY).sort().slice(0,3);
   if(!ds.length) return '';
   return G('次の稽古日', ds.map(k=>{
+    if(isKenkyu(k)){ const ks = kStatus(k, ME); return R(`${fmtMD(k)}<span class="small muted">　${k===TODAY?'今日・':''}研究会</span>`, K_LABEL[ks], {sub: ks==='furikae' ? `振替日 <span class="num">${fmtMD(kSaturday(k))}</span>` : '', data:`data-date="${k}"`, chev:true}); }
     const mb = myBooking(k);
     const sub = mb ? `${esc(mb.set)}・<span class="num">${mb.hour}時ごろ</span>` : isBookable(k) ? `受付期限 ${deadlineLabel(k)}` : '';
     const st = mb ? (mb.absent ? '欠席' : isBookable(k) ? '予約済み' : '確定') : isBookable(k) ? '受付中' : '受付終了';
@@ -566,17 +577,19 @@ function renderCalCard(){
       const mine = S.role==='student' && myBooking(s);
       if(mine && (st==='open'||st==='kenkyu')){ sub = mine.absent ? '欠席' : isBookable(s) ? '予約中' : '確定'; cls.push('mine', mine.absent ? 'abs' : isBookable(s) ? 'pend' : 'conf'); }
       else if(st==='open'){ sub = S.role==='teacher' ? `${bookingsOf(s).length}人` : '開催'; }
-      else if(st==='kenkyu'){ sub = '研究会'; }
+      else if(st==='kenkyu'){ if(S.role==='student'){ const k = kStatus(s, ME); sub = K_LABEL[k]; cls.push('mine', k==='attend' ? 'conf' : 'abs'); } else sub = '研究会'; }
       else if(st==='closed'){ sub = '休'; }
       else { sub = '未定'; }
       if(isPast(s)) cls.push('past');
     }
-    if(!lesson && evs.length){ cls.push('evday', 'k-'+evKind(evs[0])); if(evm!=='dot') sub = evShort(evs[0].title); if(isPast(s)) cls.push('past'); }
+    const furi = !lesson && kFurikaeOf(s).filter(k => S.role==='teacher' ? S.students.some(st=>kStatus(k, st.id)==='furikae') : kStatus(k, ME)==='furikae');
+    if(furi && furi.length){ sub = '振替'; cls.push('lesson', 'k-kenkyu', 'furi'); if(S.role==='student') cls.push('mine','conf'); if(isPast(s)) cls.push('past'); }
+    else if(!lesson && evs.length){ cls.push('evday', 'k-'+evKind(evs[0])); if(evm!=='dot') sub = evShort(evs[0].title); if(isPast(s)) cls.push('past'); }
     if(evs.length) cls.push('hasev');
-    const dot = evs.length && (lesson || evm==='dot') ? `<span class="ev k-${evKind(evs[0])}"></span>` : '';
+    const dot = evs.length && (lesson || evm==='dot' || (furi && furi.length)) ? `<span class="ev k-${evKind(evs[0])}"></span>` : '';
     if(s===TODAY) cls.push('today');
     if(s===S.sel) cls.push('sel');
-    const tappable = lesson || evs.length || S.role==='teacher';
+    const tappable = lesson || evs.length || (furi && furi.length) || S.role==='teacher';
     cells += tappable ? `<button class="${cls.join(' ')}" data-date="${s}"${evs.length?` aria-label="${d}日 ${esc(evs.map(e=>e.title).join('・'))}"`:''}><span class="d num">${d}</span><span class="st num">${sub}</span>${dot}</button>` : `<div class="${cls.join(' ')}"><span class="d num">${d}</span></div>`;
   }
   return `<div class="group calcard" style="margin-top:${S.role==='student'?'24px':'8px'}"><div class="calhead"><span class="calmonth num">${y}年${m}月</span><span><button data-nav="-1" ${(y===2026&&m===10)?'disabled':''} aria-label="前の月">‹</button><button data-nav="1" ${(y===2026&&m===11)?'disabled':''} aria-label="次の月">›</button></span></div><div class="wd">${WD.map(w=>`<span>${w}</span>`).join('')}</div><div class="grid">${cells}</div></div>`;
@@ -595,8 +608,11 @@ function dayMeta(s){
 function dayInfo(s){
   const st = S.days[s]; const n = bookingsOf(s).length;
   let rows = (S.role==='teacher' || !isLessonDow(s)) ? '' : R('予定', STATE_LABEL[st] || '未定');
-  if(st==='open' || st==='kenkyu'){
+  if(st==='open'){
     rows += R('受付期限', isBookable(s) ? deadlineLabel(s) : '受付終了') + R('予約人数', `<span class="num">${n}人</span>`);
+  }
+  if(st==='kenkyu'){
+    rows += R('振替日', `<span class="num">${fmtMD(kSaturday(s))}</span>`) + R('受付期限', kOpen(s) ? `<span class="num">${fmtM(kFriday(s))} 24時</span>` : '受付終了') + R('参加人数', `<span class="num">${kAttendN(s)}人</span>`);
   }
   return rows ? G('', rows, {}) : '';
 }
@@ -647,8 +663,21 @@ function openEvent(opts){
       S.sel = v.date; save(); closeSheetUI(); keep(); render(); toast(ex ? `${v.title}を保存しました` : `${fmtM(v.date)}に${v.title}を追加しました`); }
   };
 }
+function renderKenkyuStudent(s){
+  const k = kStatus(s, ME);
+  let body = G('自分の参加', R('状態', K_LABEL[k]) + (k==='furikae' ? R('振替日', `<span class="num">${fmtMD(kSaturday(s))}</span>`) : ''));
+  if(kOpen(s)){
+    if(k==='attend') body += G('', R(parse(s).getDay()===0 ? '前日に振り替える' : `${fmtM(kSaturday(s))}に振り替える`,'',{data:`data-kfuri="${s}"`, cls:'tint'}) + R('欠席を連絡する','',{data:`data-kabs="${s}"`, cls:'tint'}), {gap:true});
+    else body += G('', R('参加に戻す','',{data:`data-kback="${s}"`, cls:'tint'}), {gap:true});
+  }
+  return body + renderEvents(s);
+}
 function renderDayStudent(){
-  const s = S.sel; if(!s) return ''; if(!isLessonDow(s) && !eventsOn(s).length) return '';
+  const s = S.sel; if(!s) return '';
+  const furiFor = kFurikaeOf(s).filter(k=>kStatus(k, ME)==='furikae');
+  if(!isLessonDow(s) && !eventsOn(s).length && !furiFor.length) return '';
+  if(isKenkyu(s)) return `<section class="day"><h2 class="title2">${fmtMD(s)}</h2>${dayInfo(s)}${renderKenkyuStudent(s)}</section>`;
+  if(!isLessonDow(s)) return `<section class="day"><h2 class="title2">${fmtMD(s)}</h2>${furiFor.map(k=>G('研究会の振替', R(`${kdot('kenkyu')}${fmtMD(k)}の研究会`, '', {data:`data-date="${k}"`, chev:true}))).join('')}${renderEvents(s)}</section>`;
   const mine = myBooking(s); let body = '';
   const changing = !!(mine && S.changing===mine.id);
   const ghost = !mine && (S.ghosts||[]).filter(g=>g.b.sid===ME && g.b.date===s).pop();
@@ -677,7 +706,7 @@ function renderDayStudent(){
 }
 function renderBar(){
   if(S.role!=='student' || S.view || S.tab!=='cal') return '';
-  const s = S.sel; if(!s || !isBookable(s)) return '';
+  const s = S.sel; if(!s || !isBookable(s) || isKenkyu(s)) return '';
   const mine = myBooking(s); const changing = !!(mine && S.changing===mine.id);
   if(mine && !changing) return '';
   const d = S.draft[s] || {};
@@ -695,11 +724,20 @@ function renderLoad(s){
   return G('時間ごとの人数', `<div class="loadbox">${HOURS.map(h=>{ const n=by[h]; const w=Math.min(n,SEATS)/SEATS*100;
     return `<div class="lrow"><span class="num">${h}時</span><span class="bar"><i style="width:${w}%"></i></span><span class="n num">${n}人</span></div>`; }).join('')}</div>`, {right:`席 ${SEATS}`});
 }
+function renderKenkyuTeacher(s){
+  const rows = S.students.map(st=>({st, k:kStatus(s, st.id)}));
+  const fN = rows.filter(r=>r.k==='furikae').length, aN = rows.filter(r=>r.k==='absent').length;
+  const right = [fN?`振替 <span class="num">${fN}人</span>`:'', aN?`欠席 <span class="num">${aN}人</span>`:''].filter(Boolean).join('・');
+  return G(`参加 <span class="num">${rows.length - fN - aN}人</span>`, rows.map(r=>R(`${esc(r.st.name)}${r.k!=='attend'?`　<span class="tag">${K_LABEL[r.k]}</span>`:''}`, '', {data:`data-kedit="${r.st.id}"`, chev:true})).join(''), {right});
+}
 function renderDayTeacher(){
   const s = S.sel; if(!s) return '';
+  const furiFor = kFurikaeOf(s);
+  const furiHtml = isLessonDow(s) ? '' : furiFor.map(k=>{ const ids = S.students.filter(st=>kStatus(k, st.id)==='furikae'); return ids.length ? G(`研究会の振替 <span class="num">${ids.length}人</span>`, ids.map(st=>R(esc(st.name), '')).join('') + R(`${kdot('kenkyu')}${fmtMD(k)}の研究会`, '', {data:`data-date="${k}"`, chev:true})) : ''; }).join('');
   const st = S.days[s] || 'undecided';
   let body = !isLessonDow(s) ? '' : `<div class="group-h"><span>予定</span></div><div class="segc">${['open','closed','undecided','kenkyu'].map(k=>`<button data-state="${k}" class="${st===k?'on':''}">${STATE_LABEL[k]}</button>`).join('')}</div>`;
-  body += renderEvents(s);
+  body += furiHtml + renderEvents(s);
+  if(isKenkyu(s)) return `<section class="day"><h2 class="title2">${fmtMD(s)}</h2>${dayInfo(s)}${body}${renderKenkyuTeacher(s)}</section>`;
   const list = bookingsOf(s);
   const ghosts = (S.ghosts||[]).filter(g=>g.b.date===s).map(g=>({...g.b, _ghost:true}));
   const rows = list.concat(ghosts).sort((a,b)=>a.hour-b.hour || String(a.id).localeCompare(String(b.id)));
@@ -721,7 +759,7 @@ function renderDayTeacher(){
 
 /* ---- 予定（S3） ---- */
 function renderMine(){
-  const up = S.bookings.filter(b=>b.sid===ME && !isPast(b.date));
+  const up = S.bookings.filter(b=>b.sid===ME && !isPast(b.date) && S.days[b.date]!=='kenkyu');
   const gh = (S.ghosts||[]).filter(g=>g.b.sid===ME && !isPast(g.b.date)).map(g=>({...g.b, _ghost:true}));
   const kd = Object.keys(S.days).filter(k=>S.days[k]==='kenkyu' && k>=TODAY && !up.some(b=>b.date===k)).map(k=>({date:k, _kenkyu:true}));
   const ev = (S.events||[]).filter(e=>e.date>=TODAY).map(e=>({...e, _event:true}));
@@ -730,7 +768,7 @@ function renderMine(){
   const thisMonth = past.filter(b=>b.date.startsWith(TODAY.slice(0,7))).length;
   let html = header('予定') + `<div class="wrap">`;
   const evRow = e => `<div class="row"><button class="mid" data-goto="${e.date}"><div class="t1">${fmtMD(e.date)}</div><div class="t2">${kdot(evKind(e))}${esc(e.title)}</div>${e.deadline?`<div class="memo-line">申し込み期限 <span class="num">${fmtMD(e.deadline)}</span></div>`:''}</button>${applied(e,ME)&&e.deadline?'<span class="r">申し込み済み</span>':''}</div>`;
-  const kRow = k => `<div class="row"><button class="mid" data-goto="${k.date}"><div class="t1">${fmtMD(k.date)}</div><div class="t2">${kdot('kenkyu')}研究会</div></button><span class="r">${isBookable(k.date)?'受付中':'受付終了'}</span></div>`;
+  const kRow = k => `<div class="row"><button class="mid" data-goto="${k.date}"><div class="t1">${fmtMD(k.date)}</div><div class="t2">${kdot('kenkyu')}研究会</div>${kStatus(k.date,ME)==='furikae'?`<div class="memo-line">振替日 <span class="num">${fmtMD(kSaturday(k.date))}</span></div>`:''}</button><span class="r">${K_LABEL[kStatus(k.date,ME)]}</span></div>`;
   html += `<div class="sec" style="margin-top:0"><div class="rows">${rows.map(b=> b._event ? evRow(b) : b._kenkyu ? kRow(b) : b._ghost ? ghostRow(fmtMD(b.date), b.id) : `<div class="row"><button class="mid" data-goto="${b.date}"><div class="t1">${fmtMD(b.date)}</div><div class="t2">${kdot(isKenkyu(b.date)?'kenkyu':'open')}${esc(b.set)}・<span class="num">${b.hour}時ごろ</span>${b.absent&&isBookable(b.date)?'・欠席':''}${b.proxy?'・先生が入力':''}</div>${wishesOf(b).length?`<div class="memo-line">${esc(wishesOf(b).join('・'))}</div>`:''}</button>${!isLessonState(b.date)?'<span class="r">休み</span>':isBookable(b.date)?`<button class="act danger" data-cancel="${b.id}">キャンセル</button>`:`<span class="r">${b.absent?'欠席':'確定'}</span>`}</div>`).join('') || '<div class="empty">予約はありません。</div>'}</div></div>`;
   html += `<div class="sec"><h4>出席</h4><dl class="kv"><dt>今月</dt><dd class="num">${thisMonth}回</dd><dt>累計</dt><dd class="num">${past.length}回</dd></dl></div>`;
   return html + `</div>`;
@@ -837,7 +875,7 @@ function renderNotice(){
   const list = visibleNotices().slice().sort((a,b)=>b.at.localeCompare(a.at));
   const unread = n => S.role==='student' && !(S.read||[]).includes(n.id);
   const md = n => fmtMD(n.at.slice(0,10)).replace(/（.）$/, '');
-  const meta = n => S.role==='teacher' ? `<div class="t2">${n.to==='all'?'全員':fmtM(n.to)+'の予約者'}・<span class="num">${n.count}通</span></div>` : '';
+  const meta = n => S.role==='teacher' ? `<div class="t2">${toLabel(n.to)}・<span class="num">${n.count}通</span></div>` : '';
   const nv = document.documentElement.dataset.nv || 'letter';
   if(!list.length) return html + `<div class="sec"><div class="rows"><div class="empty">お知らせはありません</div></div></div></div>`;
   if(nv==='letter'){
@@ -856,7 +894,7 @@ function renderNotice(){
 function renderNoticeItem(v){
   const n = S.notices.find(x=>x.id===v.id); if(!n) return header('', '', 'お知らせ');
   const md = fmtMD(n.at.slice(0,10)).replace(/（.）$/, '');
-  return header('', '', 'お知らせ') + `<div class="wrap"><div class="letter"><div class="from"><span class="ico">か</span><span class="who">かたばみ会</span><span class="when num">${md}</span></div><div class="ttl">${esc(n.title||'お知らせ')}</div><div class="body">${esc(n.text)}</div><div class="sign">かたばみ会</div></div>${S.role==='teacher'?`<div class="muted small" style="margin:8px 0 0 16px">${n.to==='all'?'全員':fmtM(n.to)+'の予約者'}・<span class="num">${n.count}通</span>　<span class="num">${esc(n.at)}</span></div>`:''}</div>`;
+  return header('', '', 'お知らせ') + `<div class="wrap"><div class="letter"><div class="from"><span class="ico">か</span><span class="who">かたばみ会</span><span class="when num">${md}</span></div><div class="ttl">${esc(n.title||'お知らせ')}</div><div class="body">${esc(n.text)}</div><div class="sign">かたばみ会</div></div>${S.role==='teacher'?`<div class="muted small" style="margin:8px 0 0 16px">${toLabel(n.to)}・<span class="num">${n.count}通</span>　<span class="num">${esc(n.at)}</span></div>`:''}</div>`;
 }
 function renderNoticeNew(){
   const d = S.noticeDraft || {title:'',text:'',to:'all'}; S.noticeDraft = d;
@@ -864,14 +902,14 @@ function renderNoticeNew(){
   const count = noticeCount(d.to);
   const over = monthCount()+count > LIMIT;
   let html = header('', '', 'お知らせ') + `<div class="wrap"><h2 class="t">新しいお知らせ</h2>`;
-  html += `<div class="f"><label>宛先</label><div class="pill"><button data-nto="all" class="${d.to==='all'?'on':''}">全員</button>${upcoming.map(k=>`<button data-nto="${k}" class="${d.to===k?'on':''}">${fmtM(k)}の予約者</button>`).join('')}</div></div>`;
+  html += `<div class="f"><label>宛先</label><div class="pill"><button data-nto="all" class="${d.to==='all'?'on':''}">全員</button>${upcoming.map(k=>`<button data-nto="${k}" class="${d.to===k?'on':''}">${toLabel(k)}</button>`).join('')}</div></div>`;
   html += `<div class="f"><label>タイトル</label><input data-ntitle value="${esc(d.title||'')}" placeholder="例: 11月の休み"></div>`;
   html += `<div class="f"><label>本文</label><textarea data-ntext>${esc(d.text)}</textarea></div>`;
   html += `<div class="box"><dl class="kv"><dt>届く人</dt><dd class="num">${count}人</dd><dt>使う通数</dt><dd class="num">${count}通</dd><dt>今月の残り</dt><dd class="num">${Math.max(0,LIMIT-monthCount())}通</dd><dt>送ったあと</dt><dd class="num">${over?'不足':`${LIMIT-monthCount()-count}通`}</dd></dl></div>`;
   html += `<div class="actions"><button class="btn" data-nsend="1" ${d.text.trim()&&String(d.title||'').trim()&&!over?'':'disabled'}>送る</button><button class="btn ghost" data-back="1">やめる</button></div>`;
   return html + `</div>`;
 }
-function noticeCount(to){ return to==='all' ? S.students.length : bookingsOf(to).length; }
+function noticeCount(to){ return to==='all' ? S.students.length : S.days[to]==='kenkyu' ? S.students.filter(st=>kStatus(to, st.id)!=='absent').length : bookingsOf(to).length; }
 
 /* ---- 発注（T3） ---- */
 /* 生花のときだけ、先生が決めた候補から花材と本数を選ぶ。花展の練習は持ち込みなので自由記述だけ */
@@ -885,7 +923,7 @@ const flowerText = b => (b && b.flower && b.flower.item) ? `${b.flower.item}${b.
 function wishesOf(b){ const r = []; if(b.flower && b.flower.item) r.push(`${b.flower.item}${b.flower.count?' '+b.flower.count+'本':''}`); if(b.memo) r.push(b.memo); return r; }
 function renderOrder(){
   const t = parse(TODAY); const sunday = ymd(addDays(t, -t.getDay()));
-  const targets = Object.keys(S.days).filter(k=>isLessonState(k) && deadline(k)===sunday).sort();
+  const targets = Object.keys(S.days).filter(k=>S.days[k]==='open' && deadline(k)===sunday).sort();
   let html = header('発注', '') + `<div class="wrap"><div class="muted small">締め切り <span class="num">${fmtMD(sunday)}</span> の分</div>`;
   let text = '';
   for(const k of targets){ const list = bookingsOf(k).filter(b=>!b.absent); const counts = {}; for(const b of list) counts[b.set]=(counts[b.set]||0)+1;
@@ -917,7 +955,7 @@ function renderRoster(){
 }
 function renderStudentPage(v){
   const st = student(v.id);
-  const up = S.bookings.filter(b=>b.sid===st.id && !isPast(b.date)).sort((a,b)=>a.date.localeCompare(b.date));
+  const up = S.bookings.filter(b=>b.sid===st.id && !isPast(b.date) && S.days[b.date]!=='kenkyu').sort((a,b)=>a.date.localeCompare(b.date));
   const recs = S.records.filter(r=>r.sid===st.id).sort((a,b)=>b.date.localeCompare(a.date));
   let html = header('', '', '名簿') + `<div class="wrap"><h2 class="t">${esc(st.name)}</h2>`;
   if(FEATURES.zukan) html += `<div class="sec"><h4>図鑑での名前</h4><div class="seg"><button data-display="name" class="${st.display==='name'?'on':''}">名前を出す</button><button data-display="none" class="${st.display==='none'?'on':''}">出さない</button></div></div>`;
@@ -961,7 +999,7 @@ function openProxy(opts){
     const title = eb ? `${esc(student(eb.sid)?.name)}さん・${fmtM(eb.date)}` : fixedDate ? fmtMD(fixedDate) : `${esc(student(fixedSid).name)}さん`;
     let sec = '';
     if(!fixedDate){
-      const dates = Object.keys(S.days).filter(k=>isLessonState(k) && k>=TODAY && !S.bookings.some(b=>b.date===k && b.sid===fixedSid)).sort();
+      const dates = Object.keys(S.days).filter(k=>S.days[k]==='open' && k>=TODAY && !S.bookings.some(b=>b.date===k && b.sid===fixedSid)).sort();
       sec += G('日付', dates.map(k=>R(fmtMD(k), S.days[k]==='kenkyu'?'研究会':'', {data:`data-pdate="${k}"`, check: d.date===k})).join('') || R('入れられる日がありません',''));
     }
     if(eb && !isBookable(eb.date)) sec += `<div class="group-h"><span>出欠</span></div><div class="segc"><button data-pabs="0" class="${!d.absent?'on':''}">出席</button><button data-pabs="1" class="${d.absent?'on':''}">欠席</button></div>`;
@@ -1009,6 +1047,18 @@ function openAction(title, row, sub, okLabel, okCls, onOk){
     <div style="height:calc(24px + env(safe-area-inset-bottom,0px))"></div></div></div>`;
   el.onclick = e => { if(Date.now() < lockUntil) return; const t = e.target.closest('[data-close],[data-aok]'); if(!t) return;
     closeSheetUI(); if(t.dataset.aok) onOk(); };
+}
+function openKenkyu(date, sid){
+  const el = document.getElementById('sheet'); openSheet();
+  const draw = () => { const k = kStatus(date, sid);
+    el.innerHTML = `<div class="sheet-wrap"><div class="sheet-bg" data-close="1"></div><div class="sheet">
+    <div class="sheet-head"><button data-close="1">閉じる</button><h3 class="t">${esc(student(sid)?.name)}さん・${fmtM(date)}</h3><span></span></div>
+    ${G('研究会', ['attend','furikae','absent'].map(v=>R(K_LABEL[v], '', {data:`data-kset="${v}"`, check: k===v})).join(''))}
+    <div style="height:calc(24px + env(safe-area-inset-bottom,0px))"></div></div></div>`; };
+  draw();
+  el.onclick = e => { if(Date.now() < lockUntil) return; const t = e.target.closest('[data-close],[data-kset]'); if(!t) return;
+    if(t.dataset.close){ closeSheetUI(); return; }
+    setK(date, sid, t.dataset.kset); save(); closeSheetUI(); keep(); render(); toast(`${student(sid).name}さんを${K_LABEL[t.dataset.kset]}にしました`); };
 }
 function openAbsent(id){
   const b = S.bookings.find(x=>x.id===id); if(!b) return;
@@ -1189,6 +1239,10 @@ app.addEventListener('click', e => {
   /* お知らせ */
   if(D.noticenew){ go({name:'noticeNew'}); return; }
   if(D.notice){ if(S.role==='student'){ S.read = S.read || []; if(!S.read.includes(D.notice)) S.read.push(D.notice); } go({name:'noticeItem', id:D.notice}); return; }
+  if(D.kfuri){ lockBriefly(); const s = D.kfuri; if(!kOpen(s)) return; openAction('研究会の振替', `${fmtMD(s)} → ${fmtMD(kSaturday(s))}`, '', '振り替える', 'tint', () => { if(!kOpen(s)) return; setK(s, ME, 'furikae'); keep(); save(); render(); toast(`${fmtMD(kSaturday(s))}に振り替えました`); }); return; }
+  if(D.kabs){ lockBriefly(); const s = D.kabs; if(!kOpen(s)) return; openAction('研究会の欠席', fmtMD(s), '', '欠席を連絡する', 'tint', () => { if(!kOpen(s)) return; setK(s, ME, 'absent'); keep(); save(); render(); toast(`${fmtM(s)}の欠席を連絡しました`); }); return; }
+  if(D.kback){ if(locked()) return; const s = D.kback; if(!kOpen(s)) return; setK(s, ME, 'attend'); keep(); save(); render(); toast(`${fmtM(s)}の研究会に参加します`); return; }
+  if(D.kedit){ lockBriefly(); openKenkyu(S.sel, D.kedit); return; }
   if(D.evnew){ lockBriefly(); openEvent({date:D.evnew}); return; }
   if(D.evedit){ lockBriefly(); openEvent({id:D.evedit}); return; }
   if(D.evapply){ if(locked()) return; const e = (S.events||[]).find(x=>x.id===D.evapply); if(!e || !canApply(e)) return; const me = applied(e, ME);
